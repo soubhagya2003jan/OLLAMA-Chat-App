@@ -2,6 +2,7 @@
 # Ollama Chat Web Interface
 
 A web-based chat interface for interacting with Ollama's large language models. Built with Flask, SQLite, and modern web technologies.
+
 ![image](https://github.com/user-attachments/assets/1f3b8a5d-4ec4-48fe-8e11-e059ac91a2bd)
 ## Features
 

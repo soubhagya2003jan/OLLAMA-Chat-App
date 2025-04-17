@@ -2,7 +2,7 @@
 # Ollama Chat Web Interface
 
 A web-based chat interface for interacting with Ollama's large language models. Built with Flask, SQLite, and modern web technologies.
-
+![image](https://github.com/user-attachments/assets/1f3b8a5d-4ec4-48fe-8e11-e059ac91a2bd)
 ## Features
 
 - 🤖 Compatible with all Ollama models
@@ -98,7 +98,7 @@ ollama-chat/
    - Install a model if needed (`ollama pull mistral`)
 
 2. **Can't connect to server?**
-   - Verify Flask is running on port 5000
+   - Verify Flask is running on terminal when you execute main.py
    - Check if another application is using port 5000
    - Make sure you're accessing the correct URL
 

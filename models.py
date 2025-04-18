@@ -9,7 +9,7 @@ class Conversation(db.Model):
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    role = db.Column(db.String(10), nullable=False)
+    role = db.Column(db.String(10), nullable=False)  # 'user' or 'assistant'
     content = db.Column(db.Text, nullable=False)
     model = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -53,7 +53,7 @@ Before running this application, you need:
 
 3. Open your web browser and visit:
    ```
-   http://localhost:5000
+   http://localhost:5000 or similar check your console when you execute the file
    ```
 
 ## Project Structure

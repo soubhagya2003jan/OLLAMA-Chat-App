@@ -396,6 +396,11 @@
             return;
         }
 
+        // Remove welcome message if it exists
+        const welcomeMessage = chatContainer.querySelector('.welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
+        }
         
         addMessageToChat('user', message);
 

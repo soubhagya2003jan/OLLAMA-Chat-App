@@ -7,18 +7,23 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Create database base class
 class Base(DeclarativeBase):
     pass
 
+# Initialize SQLAlchemy with base class
 db = SQLAlchemy(model_class=Base)
 
+# Create Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "ollama-chat-secret-key")
-CORS(app)
+CORS(app)  # Enable CORS for all routes
 
+# Configure SQLAlchemy
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///ollama_chat.db")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
@@ -26,7 +31,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 db.init_app(app)
 
-OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")
+OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://127.0.0.1:11434")
 
 with app.app_context():
     import models
@@ -56,9 +61,7 @@ def get_models():
 def get_conversations():
     try:
         from models import Conversation
-
         conversations = Conversation.query.order_by(Conversation.created_at.desc()).all()
-
         result = []
         for conv in conversations:
             result.append({
@@ -66,7 +69,6 @@ def get_conversations():
                 'title': conv.title,
                 'created_at': conv.created_at.isoformat()
             })
-
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error fetching conversations: {str(e)}")
@@ -76,80 +78,32 @@ def get_conversations():
 def get_conversation(conversation_id):
     try:
         from models import Conversation, Message
-
-        conversation = Conversation.query.get(conversation_id)
-        if not conversation:
-            return jsonify({"error": "Conversation not found"}), 404
-
-        messages = Message.query.filter_by(conversation_id=conversation_id).order_by(Message.created_at).all()
-
-        message_list = []
-        for msg in messages:
-            message_list.append({
-                'role': msg.role,
-                'content': msg.content,
-                'model': msg.model,
-                'created_at': msg.created_at.isoformat()
-            })
-
-        result = {
+        conversation = Conversation.query.get_or_404(conversation_id)
+        messages = conversation.messages.order_by(Message.created_at).all()
+        return jsonify({
             'id': conversation.id,
             'title': conversation.title,
-            'created_at': conversation.created_at.isoformat(),
-            'messages': message_list
-        }
-
-        return jsonify(result)
+            'messages': [{
+                'role': msg.role,
+                'content': msg.content,
+                'model': msg.model
+            } for msg in messages]
+        })
     except Exception as e:
         logger.error(f"Error fetching conversation: {str(e)}")
         return jsonify({"error": "Failed to fetch conversation"}), 500
 
-@app.route('/api/conversations', methods=['POST'])
-def create_conversation():
-    try:
-        from models import Conversation
-
-        conversation = Conversation()
-        db.session.add(conversation)
-        db.session.commit()
-
-        return jsonify({
-            'id': conversation.id,
-            'title': conversation.title,
-            'created_at': conversation.created_at.isoformat()
-        })
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating conversation: {str(e)}")
-        return jsonify({"error": "Failed to create conversation"}), 500
-
 @app.route('/api/conversations/<int:conversation_id>', methods=['PUT'])
 def update_conversation(conversation_id):
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    title = data.get('title')
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-
     try:
         from models import Conversation
-
-        conversation = Conversation.query.get(conversation_id)
-        if not conversation:
-            return jsonify({"error": "Conversation not found"}), 404
-
-        conversation.title = title
-        db.session.commit()
-
-        return jsonify({
-            'id': conversation.id,
-            'title': conversation.title,
-            'created_at': conversation.created_at.isoformat()
-        })
+        conversation = Conversation.query.get_or_404(conversation_id)
+        data = request.json
+        if 'title' in data:
+            conversation.title = data['title']
+            db.session.commit()
+        return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
         logger.error(f"Error updating conversation: {str(e)}")
         return jsonify({"error": "Failed to update conversation"}), 500
 
@@ -157,17 +111,11 @@ def update_conversation(conversation_id):
 def delete_conversation(conversation_id):
     try:
         from models import Conversation
-
-        conversation = Conversation.query.get(conversation_id)
-        if not conversation:
-            return jsonify({"error": "Conversation not found"}), 404
-
+        conversation = Conversation.query.get_or_404(conversation_id)
         db.session.delete(conversation)
         db.session.commit()
-
-        return jsonify({"message": "Conversation deleted successfully"})
+        return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
         logger.error(f"Error deleting conversation: {str(e)}")
         return jsonify({"error": "Failed to delete conversation"}), 500
 
@@ -186,8 +134,6 @@ def chat():
 
     try:
         from models import Conversation, Message
-
-        conversation = None
         if conversation_id:
             conversation = Conversation.query.get(conversation_id)
             if not conversation:
@@ -226,12 +172,6 @@ def chat():
                 conversation_id=conversation.id
             )
             db.session.add(assistant_message)
-
-            if conversation.messages.count() <= 2:
-                words = message.split()
-                title = ' '.join(words[:5]) + ('...' if len(words) > 5 else '')
-                conversation.title = title
-
             db.session.commit()
 
             return jsonify({
@@ -240,13 +180,9 @@ def chat():
                 "conversation_id": conversation.id
             })
         else:
-            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
             db.session.delete(user_message)
             db.session.commit()
             return jsonify({"error": f"Error from Ollama API: {response.text}"}), response.status_code
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error connecting to Ollama API: {str(e)}")
-        return jsonify({"error": "Could not connect to Ollama API. Is Ollama running?"}), 500
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error processing chat: {str(e)}")

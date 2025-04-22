@@ -106,7 +106,3 @@ ollama-chat/
 ## Contributing
 
 Feel free to contribute to this project. Pull requests are welcome!
-
-## License
-
-This project is open source and available under the MIT License.
